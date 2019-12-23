@@ -2532,7 +2532,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 					);
 	#endif
 	#ifdef WARP_BUILD_ENABLE_DEVINA219
-	numberOfConfigErrors += configureSensorINA219(0b0010000110011111,/* Put in to current mode */
+	numberOfConfigErrors += configureSensorINA219(0b0011100110011111,/* Put in to default mode */
 					i2cPullupValue
 					);
 	#endif

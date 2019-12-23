@@ -108,9 +108,9 @@ writeSensorRegisterINA219(uint8_t deviceRegister, uint8_t payload, uint16_t menu
 							0 /* I2C instance */,
 							&slave,
 							commandByte,
-							1,
+							1, // kept at one byte for memory address
 							payloadByte,
-							1,
+							2, // Changed to 2 bytes for payload
 							gWarpI2cTimeoutMilliseconds);
 	if (status != kStatus_I2C_Success)
 	{
@@ -127,11 +127,11 @@ configureSensorINA219(uint8_t payloadF_SETUP, uint16_t menuI2cPullupValue)
 	WarpStatus	i2cWriteStatus2;
 
 	i2cWriteStatus1 = writeSensorRegisterINA219(0x00 /* config address */,
-							payloadF_SETUP /* payload: Set to current mode */,
+						    0b0011100110011111 /* payload: Set voltage gain */,
 							menuI2cPullupValue);
 
 	i2cWriteStatus2 = writeSensorRegisterINA219(0x05 /* config address */,
-						    0b0000110111011100 /* payload: Set up current config register 
+						    0b0101000000000000 /* payload: Set up current config register 
 							     Set here for easy access rather than in boot.c*/,
 							menuI2cPullupValue);
 
@@ -195,6 +195,7 @@ printSensorDataINA219(bool hexModeFlag)
 	uint16_t	readSensorRegisterValueLSB;
 	uint16_t	readSensorRegisterValueMSB;
 	int16_t		readSensorRegisterCombined;
+	bool		valueSign;
 	WarpStatus	i2cReadStatus;
 
 
@@ -204,7 +205,20 @@ printSensorDataINA219(bool hexModeFlag)
 	readSensorRegisterValueMSB = deviceINA219State.i2cBuffer[0];
 	readSensorRegisterValueLSB = deviceINA219State.i2cBuffer[1];
 
-	readSensorRegisterCombined = ((readSensorRegisterValueMSB & 0b00001111) << 8) | (readSensorRegisterValueLSB);
+	valueSign = (readSensorRegisterValueMSB & ( 1 << 8 )) >> 8;
+	
+	if (valueSign)
+	{
+		// Negative Number so convert from twos complement
+		readSensorRegisterCombined = ((readSensorRegisterValueMSB & 0b01111111) << 8) | (readSensorRegisterValueLSB);
+		readSensorRegisterCombined = readSensorRegisterCombined - 1;
+		readSensorRegisterCombined = ~readSensorRegisterCombined;
+	}
+	else
+	{
+		// Otherwise just treat as binary coded decimal
+		readSensorRegisterCombined = ((readSensorRegisterValueMSB & 0b01111111) << 8) | (readSensorRegisterValueLSB);
+	}
 
 	if (i2cReadStatus != kWarpStatusOK)
 	{
@@ -214,7 +228,7 @@ printSensorDataINA219(bool hexModeFlag)
 	{
 		if (hexModeFlag)
 		{
-			SEGGER_RTT_printf(0, " 0x%02x 0x%02x, ||", readSensorRegisterValueMSB, readSensorRegisterValueLSB);
+			SEGGER_RTT_printf(0, " 0x%02x 0x%02x,", readSensorRegisterValueMSB, readSensorRegisterValueLSB);
 		}
 		else
 		{
@@ -239,7 +253,7 @@ printSensorDataINA219(bool hexModeFlag)
 	{
 		if (hexModeFlag)
 		{
-			SEGGER_RTT_printf(0, " 0x%02x 0x%02x, ||", readSensorRegisterValueMSB, readSensorRegisterValueLSB);
+			SEGGER_RTT_printf(0, " 0x%02x 0x%02x,", readSensorRegisterValueMSB, readSensorRegisterValueLSB);
 		}
 		else
 		{
@@ -263,7 +277,7 @@ printSensorDataINA219(bool hexModeFlag)
 	{
 		if (hexModeFlag)
 		{
-			SEGGER_RTT_printf(0, " 0x%02x 0x%02x, ||", readSensorRegisterValueMSB, readSensorRegisterValueLSB);
+			SEGGER_RTT_printf(0, " 0x%02x 0x%02x,", readSensorRegisterValueMSB, readSensorRegisterValueLSB);
 		}
 		else
 		{
