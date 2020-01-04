@@ -2612,27 +2612,17 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 
 	if (printHeadersAndCalibration)
 	{
-		SEGGER_RTT_WriteString(0, "Measurement number, RTC->TSR, RTC->TPR,");
+		SEGGER_RTT_WriteString(0, "Measurement number, ");
 		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
 
-		#ifdef WARP_BUILD_ENABLE_DEVAMG8834
-		for (uint8_t i = 0; i < 64; i++)
-		{
-			#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-			SEGGER_RTT_printf(0, " AMG8834 %d,", i);
-			OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-			#endif
-		}
-		SEGGER_RTT_WriteString(0, " AMG8834 Temp,");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		#endif
+		
 
 		#ifdef WARP_BUILD_ENABLE_DEVINA219
-		SEGGER_RTT_WriteString(0, " INA219 Shunt Voltage, INA219 Bus Voltage, INA219 Current,");
+		SEGGER_RTT_WriteString(0, " Shunt V, Bus V, Current,");
 		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
 		#endif
 		
-		SEGGER_RTT_WriteString(0, "\n\n");
+		SEGGER_RTT_WriteString(0, " Num Config Errors\n\n");
 		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
 	}
 
@@ -2640,15 +2630,29 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 	while(1)
 	{
 		#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, "%u", readingCount);
+		SEGGER_RTT_printf(0, "%u,", readingCount);
 		#endif
 
-		
 		#ifdef WARP_BUILD_ENABLE_DEVINA219
-		printSensorDataINA219(hexModeFlag);
+		//printSensorDataINA219(hexModeFlag);
+		int num_samples = 40;
+		int repeatedValuesINA219data[num_samples];
+
+		repeatedReadSensorDataINA219(repeatedValuesINA219data, num_samples); 
+	
+
+		for (int i = 0; i < num_samples; i++ ) 
+		{
+      			SEGGER_RTT_printf(0, "%d, %d , %d,\n", readingCount, i, repeatedValuesINA219data[i]);
+   		}
+
+
 		#endif
 		
-
+		#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
+		SEGGER_RTT_printf(0, "%d\n", numberOfConfigErrors);
+		#endif
+		
 		if (menuDelayBetweenEachRun > 0)
 		{
 			OSA_TimeDelay(menuDelayBetweenEachRun);

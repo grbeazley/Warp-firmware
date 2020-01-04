@@ -126,14 +126,17 @@ configureSensorINA219(uint8_t payloadF_SETUP, uint16_t menuI2cPullupValue)
 	WarpStatus	i2cWriteStatus1;
 	WarpStatus	i2cWriteStatus2;
 
-	i2cWriteStatus1 = writeSensorRegisterINA219(0x00 /* config address */,
-						    0b0011100110011111 /* payload: Set voltage gain */,
+	/*
+	Chosen to remove writing as setting incorrect register values (only sending one byte) and default settings are correct
+	i2cWriteStatus1 = writeSensorRegisterINA219(0x00, // config address
+						    0b0011100110011111, // payload: Set voltage gain
 							menuI2cPullupValue);
 
-	i2cWriteStatus2 = writeSensorRegisterINA219(0x05 /* config address */,
-						    0b0101000000000000 /* payload: Set up current config register 
-							     Set here for easy access rather than in boot.c*/,
+	i2cWriteStatus2 = writeSensorRegisterINA219(0x05, // config address,
+						    0b0101000000000000, // payload: Set up current config register 
+							     // Set here for easy access rather than in boot.c
 							menuI2cPullupValue);
+	*/
 
 	return (i2cWriteStatus1 | i2cWriteStatus2);
 }
@@ -195,7 +198,6 @@ printSensorDataINA219(bool hexModeFlag)
 	uint16_t	readSensorRegisterValueLSB;
 	uint16_t	readSensorRegisterValueMSB;
 	int16_t		readSensorRegisterCombined;
-	bool		valueSign;
 	WarpStatus	i2cReadStatus;
 
 
@@ -205,20 +207,8 @@ printSensorDataINA219(bool hexModeFlag)
 	readSensorRegisterValueMSB = deviceINA219State.i2cBuffer[0];
 	readSensorRegisterValueLSB = deviceINA219State.i2cBuffer[1];
 
-	valueSign = (readSensorRegisterValueMSB & ( 1 << 8 )) >> 8;
-	
-	if (valueSign)
-	{
-		// Negative Number so convert from twos complement
-		readSensorRegisterCombined = ((readSensorRegisterValueMSB & 0b01111111) << 8) | (readSensorRegisterValueLSB);
-		readSensorRegisterCombined = readSensorRegisterCombined - 1;
-		readSensorRegisterCombined = ~readSensorRegisterCombined;
-	}
-	else
-	{
-		// Otherwise just treat as binary coded decimal
-		readSensorRegisterCombined = ((readSensorRegisterValueMSB & 0b01111111) << 8) | (readSensorRegisterValueLSB);
-	}
+	readSensorRegisterCombined = ((readSensorRegisterValueMSB) << 8) | (readSensorRegisterValueLSB & 0xFF);
+
 
 	if (i2cReadStatus != kWarpStatusOK)
 	{
@@ -244,6 +234,7 @@ printSensorDataINA219(bool hexModeFlag)
 	readSensorRegisterValueLSB = deviceINA219State.i2cBuffer[1];
 
 	readSensorRegisterCombined = ((readSensorRegisterValueMSB ) << 5) | ((readSensorRegisterValueLSB & 0b11111000) >> 3);
+	readSensorRegisterCombined = ((readSensorRegisterValueMSB) << 8) | (readSensorRegisterValueLSB & 0xFF);
 
 	if (i2cReadStatus != kWarpStatusOK)
 	{
@@ -288,3 +279,60 @@ printSensorDataINA219(bool hexModeFlag)
 
 
 }
+
+
+void
+repeatedReadSensorDataINA219(int *bufSample, int num_samples)
+{
+
+	// Define the array for holding the variables in a global scope
+	//extern int repeatedValuesINA219[num_samples];
+
+
+	uint16_t	readSensorRegisterValueLSB;
+	uint16_t	readSensorRegisterValueMSB;
+	int16_t		readSensorRegisterCombined;
+	int		missedReads = 0;
+	WarpStatus	i2cReadStatus;	
+
+	
+
+	for(int i=0; i<num_samples; i++)
+    	{
+		if (missedReads > num_samples)
+		{
+			// If I2C reads continue to fail break the loop
+			SEGGER_RTT_printf(0, " Missed %d Reads on I2C", missedReads);
+			break;
+		}
+		// 0x01 is the shunt voltage register 
+		i2cReadStatus = readSensorRegisterINA219(0x01, 2 /* numberOfBytes */);
+
+		readSensorRegisterValueMSB = deviceINA219State.i2cBuffer[0];
+		readSensorRegisterValueLSB = deviceINA219State.i2cBuffer[1];
+
+		readSensorRegisterCombined = ((readSensorRegisterValueMSB) << 8) | (readSensorRegisterValueLSB & 0xFF);
+
+
+		if (i2cReadStatus != kWarpStatusOK)
+		{
+			// Poor read on I2C so run again in loop			
+			i--;
+			missedReads++;
+		}
+		else
+		{
+			// Good read so store value
+			bufSample[i] = readSensorRegisterCombined;
+		}   
+		
+
+    	}
+
+
+}
+
+
+
+
+
