@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "fsl_misc_utilities.h"
 #include "fsl_device_registers.h"
@@ -61,14 +62,14 @@
 *	Comment out the header file to disable devices
 */
 #ifndef WARP_FRDMKL03
-#	include "devBMX055.h"
-#	include "devMMA8451Q.h"
-#	include "devHDC1000.h"
-#	include "devMAG3110.h"
-#	include "devL3GD20H.h"
-#	include "devBME680.h"
-#	include "devCCS811.h"
-#	include "devAMG8834.h"
+//#	include "devBMX055.h"
+//#	include "devMMA8451Q.h"
+//#	include "devHDC1000.h"
+//#	include "devMAG3110.h"
+//#	include "devL3GD20H.h"
+//#	include "devBME680.h"
+//#	include "devCCS811.h"
+//#	include "devAMG8834.h"
 #	include "devSSD1331.h"
 #   include "devINA219.h"
 //#include "devTCS34725.h"
@@ -81,7 +82,7 @@
 //#include "devAS7263.h"
 //#include "devRV8803C7.h"
 #else
-#	include "devMMA8451Q.h"
+//#	include "devMMA8451Q.h"
 #	include "devSSD1331.h"
 #	include "devINA219.h"
 #endif
@@ -2641,23 +2642,37 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 		repeatedReadSensorDataINA219(repeatedValuesINA219data, num_samples); 
 		
 		int maxBatchValue = 0;
+		double currentSumOfSquares = 0;
 
 		for (int i = 0; i < num_samples; i++ ) 
 		{
+			/*			
 			//SEGGER_RTT_printf(0, "%d, %d, %d,\n", readingCount, i, repeatedValuesINA219data[i]);
 			if (abs(repeatedValuesINA219data[i]) > maxBatchValue)
 			{
 				// New larger batch value found so update max value
 				maxBatchValue = abs(repeatedValuesINA219data[i]);
 			}
+			*/
+			
+			// Compute RMS of current draw to caclulate power
+			currentSumOfSquares += repeatedValuesINA219data[i] * repeatedValuesINA219data[i];
+			
    		}
 
-		float maxPowerFloat;
-		int maxPowerInt;
+		//float maxPowerFloat;
+		//int maxPowerInt;
 
-		maxPowerFloat = maxBatchValue * 0.09;
-		maxPowerInt = (int)maxPowerFloat;
-		SEGGER_RTT_printf(0, "Power Usage: %dW,\n", maxPowerInt);
+		//maxPowerFloat = maxBatchValue * 0.09;
+		//maxPowerInt = (int)maxPowerFloat;
+		//SEGGER_RTT_printf(0, "Power Usage: %dW,\n", maxPowerInt);
+
+		double rmsPowerDouble;
+		int rmsPowerInt;
+		rmsPowerDouble = sqrt(currentSumOfSquares / num_samples) * 0.12;
+		rmsPowerInt = (int)rmsPowerDouble;
+		SEGGER_RTT_printf(0, "Power Usage: %dW,\n", rmsPowerInt);
+		
 
 
 		#endif
