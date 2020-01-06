@@ -2639,18 +2639,31 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 		int repeatedValuesINA219data[num_samples];
 
 		repeatedReadSensorDataINA219(repeatedValuesINA219data, num_samples); 
-	
+		
+		int maxBatchValue = 0;
 
 		for (int i = 0; i < num_samples; i++ ) 
 		{
-      			SEGGER_RTT_printf(0, "%d, %d , %d,\n", readingCount, i, repeatedValuesINA219data[i]);
+			//SEGGER_RTT_printf(0, "%d, %d, %d,\n", readingCount, i, repeatedValuesINA219data[i]);
+			if (abs(repeatedValuesINA219data[i]) > maxBatchValue)
+			{
+				// New larger batch value found so update max value
+				maxBatchValue = abs(repeatedValuesINA219data[i]);
+			}
    		}
+
+		float maxPowerFloat;
+		int maxPowerInt;
+
+		maxPowerFloat = maxBatchValue * 0.09;
+		maxPowerInt = (int)maxPowerFloat;
+		SEGGER_RTT_printf(0, "Power Usage: %dW,\n", maxPowerInt);
 
 
 		#endif
 		
 		#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, "%d\n", numberOfConfigErrors);
+		//SEGGER_RTT_printf(0, "%d\n", numberOfConfigErrors);
 		#endif
 		
 		if (menuDelayBetweenEachRun > 0)
