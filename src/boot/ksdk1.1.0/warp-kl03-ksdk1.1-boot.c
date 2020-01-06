@@ -1649,7 +1649,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 
 		#ifdef WARP_BUILD_ENABLE_DEVINA219
 		//printSensorDataINA219(hexModeFlag);
-		int num_samples = 80;
+		int num_samples = 60;
 		int repeatedValuesINA219data[num_samples];
 
 		repeatedReadSensorDataINA219(repeatedValuesINA219data, num_samples); 
@@ -1669,7 +1669,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 			*/
 			
 			// Compute RMS of current draw to caclulate power
-			currentSumOfSquares += repeatedValuesINA219data[i] * repeatedValuesINA219data[i];
+			currentSumOfSquares += repeatedValuesINA219data[i] * (repeatedValuesINA219data[i]/num_samples);
 			
    		}
 
@@ -1682,7 +1682,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 
 		double rmsPowerDouble;
 		int rmsPowerInt;
-		rmsPowerDouble = sqrt(currentSumOfSquares / num_samples) * 0.12;
+		rmsPowerDouble = sqrt(currentSumOfSquares) * 0.12;
 		rmsPowerInt = (int)rmsPowerDouble;
 		SEGGER_RTT_printf(0, "Power Usage: %dW,\n", rmsPowerInt);
 		
