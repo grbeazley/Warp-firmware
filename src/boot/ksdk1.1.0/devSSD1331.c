@@ -107,13 +107,14 @@ writeColor(uint8_t commandByte[3], int transfer_size)
 }
 
 static int
-writeLine(uint8_t commandByte[8], int transfer_size)
+writeLine(uint8_t commandByte[8])
 {
 	spi_status_t status;
 
-
+	int 				transfer_size = 8;
 	volatile uint8_t	inBuffer[transfer_size];
 	volatile uint8_t	payloadBytes[transfer_size];
+	
 
 	/*
 	 *	Drive /CS low.
@@ -141,6 +142,108 @@ writeLine(uint8_t commandByte[8], int transfer_size)
 					(uint8_t * restrict)&inBuffer,
 					transfer_size	/* transfer size */,
 					1		/* timeout in microseconds (unlike I2C which is ms) */);
+
+	/*
+	 *	Drive /CS high
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+
+	return status;
+}
+
+uint8_t numberColorR = 0x00;
+uint8_t numberColorG = 0x35;
+uint8_t numberColorB = 0x36;
+
+//uint8_t numberColor[3] = {0x00, 0x00, 0x00};
+
+uint8_t backgrColorR = 0x00;
+uint8_t backgrColorG = 0x00;
+uint8_t backgrColorB = 0x00;
+
+uint8_t backgrColor[3] = {0x00, 0x00, 0x00};
+
+
+static int
+writeWatts()
+{
+	// Write the W for the measurement of Watts
+	spi_status_t status;
+
+	int 				transfer_size = 32;
+	volatile uint8_t	inBuffer[transfer_size];
+	
+	
+
+	/*
+	 *	Drive /CS low.
+	 *
+	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+	OSA_TimeDelay(0.1);
+	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
+
+	/*
+	 *	Drive DC low (command).
+	 */
+	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
+
+	volatile uint8_t payloadBytes[32] = {0x21, 0x51, 0x07, 0x51, 0x38, numberColorR, numberColorG, numberColorB,  /* Draw left hand line */
+										 0x21, 0x51, 0x38, 0x56, 0x2E, numberColorR, numberColorG, numberColorB,  /* Draw left upward diagonal */
+										 0x21, 0x5C, 0x38, 0x57, 0x2E, numberColorR, numberColorG, numberColorB,  /* Draw right downward diagonal */
+										 0x21, 0x5C, 0x07, 0x5C, 0x38, numberColorR, numberColorG, numberColorB}; /* Draw right hand line */
+
+
+	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
+					NULL		/* spi_master_user_config_t */,
+					(const uint8_t * restrict)&payloadBytes,
+					(uint8_t * restrict)&inBuffer,
+					32	/* transfer size */,
+					1000	/* timeout in microseconds (unlike I2C which is ms) */);
+
+	/*
+	 *	Drive /CS high
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+
+	return status;
+}
+
+static int
+writeKilo()
+{
+	// Write a K to denote measuring kilo watts
+	spi_status_t status;
+
+	int 				transfer_size = 24;
+	volatile uint8_t	inBuffer[transfer_size];	
+
+	/*
+	 *	Drive /CS low.
+	 *
+	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+	OSA_TimeDelay(0.1);
+	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
+
+	/*
+	 *	Drive DC low (command).
+	 */
+	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
+
+	volatile uint8_t payloadBytes[24] = {0x21, 0x54, 0x12, 0x54, 0x29, numberColorR, numberColorG, numberColorB,   /* Draw left hand line    */
+										 0x21, 0x55, 0x1C, 0x59, 0x12, numberColorR, numberColorG, numberColorB,   /* Draw upward diagonal   */
+										 0x21, 0x55, 0x1D, 0x59, 0x29, numberColorR, numberColorG, numberColorB};  /* Draw downward diagonal */
+
+
+	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
+					NULL		/* spi_master_user_config_t */,
+					(const uint8_t * restrict)&payloadBytes,
+					(uint8_t * restrict)&inBuffer,
+					24	/* transfer size */,
+					1000		/* timeout in microseconds (unlike I2C which is ms) */);
 
 	/*
 	 *	Drive /CS high
@@ -288,125 +391,68 @@ devSSD1331init(void)
 	return 0;
 }
 
-uint8_t numberColorR = 0x00;
-uint8_t numberColorG = 0x3F;
-uint8_t numberColorB = 0x00;
-
-uint8_t numberColor[3] = {0x00, 0x3F, 0x00};
-
-uint8_t backgrColorR = 0x00;
-uint8_t backgrColorG = 0x00;
-uint8_t backgrColorB = 0x00;
-
-uint8_t backgrColor[3] = {0x00, 0x00, 0x00};
 
 
 
 void drawRect(uint8_t positionOffset)
 {
-	writeCommand(0x22); // Draw rectangle mode
-	writeCommand(0x03+positionOffset); // set column
-	writeCommand(0x07); // set first row
-	writeCommand(0x18+positionOffset); // finish column
-	writeCommand(0x38); // finish row
-	
-	writeColor(numberColor, 3); // set outline of number 		
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	// Using the line drawing tool to write the first part of the rectangle
+	uint8_t line_buffer[8] = {0x22, 0x03+positionOffset, 0x07, 0x18+positionOffset, 0x38, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 	
 	writeColor(backgrColor, 3); // set fill of number same as background
+	
+	
 	
 }
 	
 void 
 drawSide(uint8_t positionOffset)
 {
-	writeCommand(0x21); // Enter draw mode	
-	writeCommand(0x03+positionOffset); // Start at column 3 + positionOffset
-	writeCommand(0x07); // Start at row 7
-	writeCommand(0x03+positionOffset); // End at same column 3 + positionOffset
-	writeCommand(0x38); // Finish at row 56
-	
-	writeColor(numberColor, 3); // set outline of number 		
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	uint8_t line_buffer[8] = {0x21, 0x03+positionOffset, 0x07, 0x03+positionOffset, 0x38, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 }
 
 void
 drawBar(uint8_t positionOffset)
 {
-	writeCommand(0x21); // Enter draw mode	
-	writeCommand(0x03+positionOffset); // Start at column 3 + positionOffset
-	writeCommand(0x1F); // Start at row 0x1F
-	writeCommand(0x18+positionOffset); // End at same column 24 + positionOffset
-	writeCommand(0x1F); // Finish at row 31
-	
-	writeColor(numberColor, 3); // set outline of number 		
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	uint8_t line_buffer[8] = {0x21, 0x03+positionOffset, 0x1F, 0x18+positionOffset, 0x1F, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 }
 
 void
 drawShortSideLower(uint8_t positionOffset)
 {
-	writeCommand(0x21); // Enter draw mode	
-	writeCommand(0x03+positionOffset); // Start at column 3 + positionOffset
-	writeCommand(0x1F); // Start at row 31
-	writeCommand(0x03+positionOffset); // End at same column 24 + positionOffset
-	writeCommand(0x38); // Finish at row 56
-	
-	writeColor(numberColor, 3); // set outline of number 	
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	uint8_t line_buffer[8] = {0x21, 0x03+positionOffset, 0x1F, 0x03+positionOffset, 0x38, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 }
 
 void
 drawShortSideUpper(uint8_t positionOffset)
 {
-	writeCommand(0x21); // Enter draw mode	
-	writeCommand(0x03+positionOffset); // Start at column 3 + positionOffset
-	writeCommand(0x07); // Start at row 7
-	writeCommand(0x03+positionOffset); // End at same column 3 + positionOffset
-	writeCommand(0x1F); // Finish at row 31
-	
-	writeColor(numberColor, 3); // set outline of number 	
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	uint8_t line_buffer[8] = {0x21, 0x03+positionOffset, 0x07, 0x03+positionOffset, 0x1F, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 }
 
 void
 drawBottom(uint8_t positionOffset)
 {
-	writeCommand(0x21); // Enter draw mode	
-	writeCommand(0x03+positionOffset); // Start at column 3 + positionOffset
-	writeCommand(0x38); // Start at row 31
-	writeCommand(0x18+positionOffset); // End at column 24 + positionOffset
-	writeCommand(0x38); // Finish at row 31
-	
-	writeColor(numberColor, 3); // set outline of number 
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	uint8_t line_buffer[8] = {0x21, 0x03+positionOffset, 0x38, 0x18+positionOffset, 0x38, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 }
 
 void
 drawTop(uint8_t positionOffset)
 {
-	writeCommand(0x21); // Enter draw mode	
-	writeCommand(0x03+positionOffset); // Start at column 3 + positionOffset
-	writeCommand(0x07); // Start at row 7
-	writeCommand(0x18+positionOffset); // End at column 24 + positionOffset
-	writeCommand(0x07); // Finish at row 7
-	
-	writeColor(numberColor, 3); // set outline of number 		
-	//writeCommand(numberColorR); // set outline of number red
-	//writeCommand(numberColorG); // set outline of number green
-	//writeCommand(numberColorB); // set outline of number blue
+	uint8_t line_buffer[8] = {0x21, 0x03+positionOffset, 0x07, 0x18+positionOffset, 0x07, numberColorR, numberColorG, numberColorB};
+		
+	writeLine(line_buffer);
 }
 
 
@@ -494,9 +540,9 @@ drawNumber(int number, uint8_t positionOffset)
 		case 9:
 		
 			// Draw 9
-			drawSide(positionOffset);
 			drawBar(positionOffset);
 			drawTop(positionOffset);
+			drawBottom(positionOffset);
 			drawSide(positionOffset+0x15);
 			drawShortSideUpper(positionOffset);
 			break;
@@ -531,17 +577,26 @@ drawNumbersPower(int power)
 	else if(power <= 1000 && power >= 0)
 	{
 		isValid = 1;
+		
+		// Power below 1000W, so use cyan colour
+		numberColorR = 0x00;
+		numberColorG = 0x35;
+		numberColorB = 0x36;
 	}
+	
 	// If it is in kilowatts get the first three significant figures
 	if (isKiloWatts && isValid)
 	{
 		power_val1 = power / 1000;
-	        power_val2 = (power % 1000) / 100;
-	        power_val3 = (power % 100) / 10;
-	    
-	    
-	}
-	// Otherwise, if its valid, get all digits
+	    power_val2 = (power % 1000) / 100;
+	    power_val3 = (power % 100) / 10;
+		
+		numberColorR = 0x39;
+		numberColorG = 0x00;
+		numberColorB = 0x00;
+		
+	}       
+	// OtherbackgrColor[3] = {0x00, 0x00, 0x00};wise, if its valid, get all digits
 	else if (isValid)
 	{        
 		power_val1 = power / 100;
@@ -560,36 +615,35 @@ drawNumbersPower(int power)
 	writeCommand(0x5F);
 	writeCommand(0x3F);
 
+	// Set Background color (commented since background assumed black)
+	//uint8_t line_buffer[8] = {0x22, 0x00, 0x00, 0x5F, 0x3F, backgrColorR, backgrColorG, backgrColorB};
+		
+	//writeLine(line_buffer);
+	
+	//writeColor(backgrColor, 3); // set background fill
 
+
+	writeWatts();
 	
 	if (isKiloWatts)
 	{
 		// Draw K for kilo 
+		writeKilo();
 
 
-
-		// Decimal Point (with a rectangle)
-		writeCommand(0x22); // Draw rectangle mode
-		writeCommand(0x1A); // set column
-		writeCommand(0x35); // set first row
-		writeCommand(0x1B); // finish column
-		writeCommand(0x36); // finish row
+		// Decimal Point (with a rectangle)		
+		uint8_t line_buffer[8] = {0x22, 0x1A, 0x35, 0x1B, 0x36, numberColorR, numberColorG, numberColorB};
 		
-		writeColor(numberColor, 3); // set outline of number 
-		//writeCommand(numberColorR); // set outline of number R
-		//writeCommand(numberColorG); // set outline of number G
-		//writeCommand(numberColorB); // set outline of number B
-		
-		writeColor(backgrColor, 3); // set fill of number same as background 		
-		//writeCommand(backgrColorR); // set fill of number same as background R
-		//writeCommand(backgrColorG); // set fill of number same as background G
-		//writeCommand(backgrColorB); // set fill of number same as background B
+		writeLine(line_buffer);
+	
+		writeColor(backgrColor, 3); // set background fill
 
 	}
-
-	drawNumber(power_val1, 0);
+	
+	// Draw last number first as it is likely to change the most
+	drawNumber(power_val3, 0x34);	
 	drawNumber(power_val2, 0x1A);
-	drawNumber(power_val3, 0x34);
+	drawNumber(power_val1, 0);
 
 
 	
