@@ -63,7 +63,51 @@ writeCommand(uint8_t commandByte)
 }
 
 static int
-writeMultiCommand(uint8_t commandByte[3], int transfer_size)
+writeColor(uint8_t commandByte[3], int transfer_size)
+{
+	spi_status_t status;
+
+
+	volatile uint8_t	inBuffer[transfer_size];
+	volatile uint8_t	payloadBytes[transfer_size];
+
+	/*
+	 *	Drive /CS low.
+	 *
+	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+	OSA_TimeDelay(0.1);
+	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
+
+	/*
+	 *	Drive DC low (command).
+	 */
+	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
+	
+	for (int i = 0; i < transfer_size; i++)
+	{ 
+		payloadBytes[i] = commandByte[i];
+
+
+	}
+	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
+					NULL		/* spi_master_user_config_t */,
+					(const uint8_t * restrict)&payloadBytes,
+					(uint8_t * restrict)&inBuffer,
+					transfer_size	/* transfer size */,
+					1		/* timeout in microseconds (unlike I2C which is ms) */);
+
+	/*
+	 *	Drive /CS high
+	 */
+	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+
+	return status;
+}
+
+static int
+writeLine(uint8_t commandByte[8], int transfer_size)
 {
 	spi_status_t status;
 
@@ -266,14 +310,12 @@ void drawRect(uint8_t positionOffset)
 	writeCommand(0x18+positionOffset); // finish column
 	writeCommand(0x38); // finish row
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 		
+	writeColor(numberColor, 3); // set outline of number 		
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
 	
-	writeCommand(backgrColorR); // set fill of number same as background R
-	writeCommand(backgrColorG); // set fill of number same as background G
-	writeCommand(backgrColorB); // set fill of number same as background B
+	writeColor(backgrColor, 3); // set fill of number same as background
 	
 }
 	
@@ -286,7 +328,7 @@ drawSide(uint8_t positionOffset)
 	writeCommand(0x03+positionOffset); // End at same column 3 + positionOffset
 	writeCommand(0x38); // Finish at row 56
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 		
+	writeColor(numberColor, 3); // set outline of number 		
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
@@ -301,7 +343,7 @@ drawBar(uint8_t positionOffset)
 	writeCommand(0x18+positionOffset); // End at same column 24 + positionOffset
 	writeCommand(0x1F); // Finish at row 31
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 		
+	writeColor(numberColor, 3); // set outline of number 		
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
@@ -316,7 +358,7 @@ drawShortSideLower(uint8_t positionOffset)
 	writeCommand(0x03+positionOffset); // End at same column 24 + positionOffset
 	writeCommand(0x38); // Finish at row 56
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 	
+	writeColor(numberColor, 3); // set outline of number 	
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
@@ -331,7 +373,7 @@ drawShortSideUpper(uint8_t positionOffset)
 	writeCommand(0x03+positionOffset); // End at same column 3 + positionOffset
 	writeCommand(0x1F); // Finish at row 31
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 	
+	writeColor(numberColor, 3); // set outline of number 	
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
@@ -346,7 +388,7 @@ drawBottom(uint8_t positionOffset)
 	writeCommand(0x18+positionOffset); // End at column 24 + positionOffset
 	writeCommand(0x38); // Finish at row 31
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 
+	writeColor(numberColor, 3); // set outline of number 
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
@@ -361,7 +403,7 @@ drawTop(uint8_t positionOffset)
 	writeCommand(0x18+positionOffset); // End at column 24 + positionOffset
 	writeCommand(0x07); // Finish at row 7
 	
-	writeMultiCommand(numberColor, 3); // set outline of number 		
+	writeColor(numberColor, 3); // set outline of number 		
 	//writeCommand(numberColorR); // set outline of number red
 	//writeCommand(numberColorG); // set outline of number green
 	//writeCommand(numberColorB); // set outline of number blue
@@ -372,84 +414,100 @@ drawTop(uint8_t positionOffset)
 void
 drawNumber(int number, uint8_t positionOffset)
 {
-	
+
 	switch(number)
 	{
 		case 0:
-		{
+		
 			// Draw 0
 			drawRect(positionOffset);
+			break;
 			
-		}
+		
 		case 1:
-		{
+		
 			// Draw 1
 			drawSide(positionOffset+0x15);
-		}
+			break;
+		
 		case 2:
-		{
+		
 			// Draw 2
 			drawBar(positionOffset);
 			drawTop(positionOffset);
 			drawBottom(positionOffset);
 			drawShortSideLower(positionOffset);
 			drawShortSideUpper(positionOffset+0x15);
-		}
+			break;
+		
 		case 3:
-		{
+		
 			// Draw 3
 			drawBar(positionOffset);
 			drawTop(positionOffset);
 			drawBottom(positionOffset);
 			drawSide(positionOffset+0x15);
-		}
+			break;
+		
 		case 4:
-		{
+		
 			// Draw 4
 			drawSide(positionOffset+0x15);
 			drawBar(positionOffset);
 			drawShortSideUpper(positionOffset);
-		}
+			break;
+		
 		case 5:
-		{
+		
 			// Draw 5
 			drawBar(positionOffset);
 			drawTop(positionOffset);
 			drawBottom(positionOffset);
 			drawShortSideLower(positionOffset+0x15);
 			drawShortSideUpper(positionOffset);
-		}
+			break;
+		
 		case 6:
-		{
+		
 			// Draw 6
 			drawSide(positionOffset);
 			drawBar(positionOffset);
 			drawTop(positionOffset);
 			drawBottom(positionOffset);
 			drawShortSideLower(positionOffset+0x15);
-		}
+			break;
+		
 		case 7:
-		{
+		
 			// Draw 7
 			drawSide(positionOffset+0x15);
 			drawTop(positionOffset);
-		}
+			break;
+		
 		case 8:
-		{
+		
 			// Draw 8
 			drawRect(positionOffset);
 			drawBar(positionOffset);
-		}
+			break;
+		
 		case 9:
-		{
+		
 			// Draw 9
 			drawSide(positionOffset);
 			drawBar(positionOffset);
 			drawTop(positionOffset);
 			drawSide(positionOffset+0x15);
 			drawShortSideUpper(positionOffset);
-		}
+			break;
+		
+		default:
+		
+			// Should never get here
+			break;
+		
 	}
+	
 }
 
 void
@@ -517,12 +575,12 @@ drawNumbersPower(int power)
 		writeCommand(0x1B); // finish column
 		writeCommand(0x36); // finish row
 		
-		writeMultiCommand(numberColor, 3); // set outline of number 
+		writeColor(numberColor, 3); // set outline of number 
 		//writeCommand(numberColorR); // set outline of number R
 		//writeCommand(numberColorG); // set outline of number G
 		//writeCommand(numberColorB); // set outline of number B
 		
-		writeMultiCommand(backgrColor, 3); // set fill of number same as background 		
+		writeColor(backgrColor, 3); // set fill of number same as background 		
 		//writeCommand(backgrColorR); // set fill of number same as background R
 		//writeCommand(backgrColorG); // set fill of number same as background G
 		//writeCommand(backgrColorB); // set fill of number same as background B
