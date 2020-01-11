@@ -1641,7 +1641,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 	}
 
 
-	while(1)
+	for (int j = 0; j < 100; j++)
 	{
 		#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
 		SEGGER_RTT_printf(0, "%u,", readingCount);
@@ -1649,7 +1649,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 
 		#ifdef WARP_BUILD_ENABLE_DEVINA219
 		//printSensorDataINA219(hexModeFlag);
-		int num_samples = 60;
+		int num_samples = 40;
 		int repeatedValuesINA219data[num_samples];
 
 		repeatedReadSensorDataINA219(repeatedValuesINA219data, num_samples); 
@@ -1685,6 +1685,8 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelay
 		rmsPowerDouble = sqrt(currentSumOfSquares) * 0.12;
 		rmsPowerInt = (int)rmsPowerDouble;
 		SEGGER_RTT_printf(0, "Power Usage: %dW,\n", rmsPowerInt);
+
+		drawNumbersPower(rmsPowerInt);
 		
 
 
