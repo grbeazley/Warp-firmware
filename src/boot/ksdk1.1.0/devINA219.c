@@ -285,8 +285,7 @@ void
 repeatedReadSensorDataINA219(int *bufSample, int num_samples)
 {
 
-	// Define the array for holding the variables in a global scope
-	//extern int repeatedValuesINA219[num_samples];
+	// Fill up the pointer to the sample buffer with samples
 
 
 	uint16_t	readSensorRegisterValueLSB;

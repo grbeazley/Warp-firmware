@@ -1355,167 +1355,62 @@ main(void)
 // Run display initialisation
 devSSD1331init();
 
+int readingCount = 0;
+int menuDelayBetweenEachRun = 500;
+int numberOfConfigErrors = 0;
+
+enableI2Cpins(menuI2cPullupValue);
+
+
+numberOfConfigErrors += configureSensorINA219(0b0011100110011111,/* Put in to default mode */
+												menuI2cPullupValue
+												);
+
 
 	while (1)
 	{
-		/*
-		 *	Do not, e.g., lowPowerPinStates() on each iteration, because we actually
-		 *	want to use menu to progressiveley change the machine state with various
-		 *	commands.
-		 */
-
-		/*
-		 *	We break up the prints with small delays to allow us to use small RTT print
-		 *	buffers without overrunning them when at max CPU speed.
-		 */
-		SEGGER_RTT_WriteString(0, "\r\n\n\n\n[ *\t\t\t\tW\ta\tr\tp\t(rev. b)\t\t\t* ]\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r[  \t\t\t\t      Cambridge / Physcomplab   \t\t\t\t  ]\n\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-		SEGGER_RTT_printf(0, "\r\tSupply=%dmV,\tDefault Target Read Register=0x%02x\n",
-								menuSupplyVoltage, menuRegisterAddress);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tI2C=%dkb/s,\tSPI=%dkb/s,\tUART=%dkb/s,\tI2C Pull-Up=%d\n\n",
-								gWarpI2cBaudRateKbps, gWarpSpiBaudRateKbps, gWarpUartBaudRateKbps, menuI2cPullupValue);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tSIM->SCGC6=0x%02x\t\tRTC->SR=0x%02x\t\tRTC->TSR=0x%02x\n", SIM->SCGC6, RTC->SR, RTC->TSR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tMCG_C1=0x%02x\t\t\tMCG_C2=0x%02x\t\tMCG_S=0x%02x\n", MCG_C1, MCG_C2, MCG_S);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tMCG_SC=0x%02x\t\t\tMCG_MC=0x%02x\t\tOSC_CR=0x%02x\n", MCG_SC, MCG_MC, OSC_CR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tSMC_PMPROT=0x%02x\t\t\tSMC_PMCTRL=0x%02x\t\tSCB->SCR=0x%02x\n", SMC_PMPROT, SMC_PMCTRL, SCB->SCR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_printf(0, "\r\tPMC_REGSC=0x%02x\t\t\tSIM_SCGC4=0x%02x\tRTC->TPR=0x%02x\n\n", PMC_REGSC, SIM_SCGC4, RTC->TPR);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-		SEGGER_RTT_printf(0, "\r\t%ds in RTC Handler to-date,\t%d Pmgr Errors\n", gWarpSleeptimeSeconds, powerManagerCallbackStructure.errorCount);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#else
-		SEGGER_RTT_WriteString(0, "\r\n\n\t\tWARNING: SEGGER_RTT_printf disabled in this firmware build.\n\t\tOnly showing output that does not require value formatting.\n\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#endif
-
-		SEGGER_RTT_WriteString(0, "\rSelect:\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'a': set default sensor.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'b': set I2C baud rate.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'c': set SPI baud rate.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'd': set UART baud rate.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'e': set default register address.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'f': write byte to sensor.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'g': set default SSSUPPLY.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'h': powerdown command to all sensors.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'i': set pull-up enable value.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF 
-		SEGGER_RTT_printf(0, "\r- 'j': repeat read reg 0x%02x on sensor #%d.\n", menuRegisterAddress, menuTargetSensor);
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#endif
-
-		SEGGER_RTT_WriteString(0, "\r- 'k': sleep until reset.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'l': send repeated byte on I2C.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'm': send repeated byte on SPI.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'n': enable SSSUPPLY.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'o': disable SSSUPPLY.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'p': switch to VLPR mode.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'r': switch to RUN mode.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 's': power up all sensors.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 't': dump processor state.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		SEGGER_RTT_WriteString(0, "\r- 'u': set I2C address.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#ifdef WARP_BUILD_ENABLE_DEVRV8803C7
-		SEGGER_RTT_WriteString(0, "\r- 'v': Enter VLLS0 low-power mode for 3s, then reset\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#endif
-		SEGGER_RTT_WriteString(0, "\r- 'x': disable SWD and spin for 10 secs.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-#ifdef WARP_BUILD_ENABLE_THERMALCHAMBERANALYSIS
-		SEGGER_RTT_WriteString(0, "\r- 'y': stress test (need a force quit)\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-#endif
-
-		SEGGER_RTT_WriteString(0, "\r- 'z': dump all sensors data.\n");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-
-		SEGGER_RTT_WriteString(0, "\rEnter selection> ");
-		OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
-		key = SEGGER_RTT_WaitKey();
-
-		switch (key)
-		{
-			/*
-			 *		Select sensor
-			 */
 			
-			/*
-			 *	Dump all the sensor data in one go
-			 */
-			case 'z':
-			{
-				bool		hexModeFlag;
+	    #ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
+	    SEGGER_RTT_printf(0, "%u,", readingCount);
+	    #endif
 
+	    // Create a pointer to the memory where the samples are stored
+	    int num_samples = 50;
+	    int repeatedValuesINA219data[num_samples];
 
-				SEGGER_RTT_WriteString(0, "\r\n\tEnabling I2C pins...\n");
-				enableI2Cpins(menuI2cPullupValue);
+	    // Pass the pointer to the function so it can write the samples to it
+	    repeatedReadSensorDataINA219(repeatedValuesINA219data, num_samples); 
 
-				SEGGER_RTT_WriteString(0, "\r\n\tHex or converted mode? ('h' or 'c')> ");
-				key = SEGGER_RTT_WaitKey();
-				hexModeFlag = (key == 'h' ? 1 : 0);
+	    // A double is used to increase precision when computing the square root    
+	    double currentSumOfSquares = 0;
 
-				SEGGER_RTT_WriteString(0, "\r\n\tSet the time delay between each run in milliseconds (e.g., '1234')> ");
-				uint16_t	menuDelayBetweenEachRun = read4digits();
-				SEGGER_RTT_printf(0, "\r\n\tDelay between read batches set to %d milliseconds.\n\n", menuDelayBetweenEachRun);
-				OSA_TimeDelay(gWarpMenuPrintDelayMilliseconds);
+	    for (int i = 0; i < num_samples; i++ ) 
+	    {
+		//Compute Sum of squares of current samples
+	    	currentSumOfSquares += repeatedValuesINA219data[i] * (repeatedValuesINA219data[i]/num_samples);        
+	    }
 
-				printAllSensors(true /* printHeadersAndCalibration */, hexModeFlag, menuDelayBetweenEachRun, menuI2cPullupValue);
+	    double rmsPowerDouble;
+	    int rmsPowerInt;
 
-				/*
-				 *	Not reached (printAllSensors() does not return)
-				 */
-				disableI2Cpins();
+	    // Find power usage from RMS current and then cast it to an integer
+	    rmsPowerDouble = sqrt(currentSumOfSquares) * 0.125;
+	    rmsPowerInt = (int)rmsPowerDouble;
 
-				break;
-			}
+	    // Write the power to the console for debugging
+	    SEGGER_RTT_printf(0, "Power Usage: %dW,\n", rmsPowerInt);
 
+	    // Update the display with the current power usage
+	    drawNumbersPower(rmsPowerInt);
+	    
+	    // Delay for 500ms
+	    if (menuDelayBetweenEachRun > 0)
+	    {
+		OSA_TimeDelay(menuDelayBetweenEachRun);
+	    }
 
-			/*
-			 *	Ignore naked returns.
-			 */
-			case '\n':
-			{
-				SEGGER_RTT_WriteString(0, "\r\tPayloads make rockets more than just fireworks.");
-				break;
-			}
-
-			default:
-			{
-				#ifdef WARP_BUILD_ENABLE_SEGGER_RTT_PRINTF
-				SEGGER_RTT_printf(0, "\r\tInvalid selection '%c' !\n", key);
-				#endif
-			}
-		}
+	    readingCount++;
+	    	
 	}
 
 	return 0;
@@ -1860,7 +1755,7 @@ loopForSensor(	const char *  tagString,
 void
 repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t baseAddress, uint16_t pullupValue, bool autoIncrement, int chunkReadsPerAddress, bool chatty, int spinDelay, int repetitionsPerAddress, uint16_t sssupplyMillivolts, uint16_t adaptiveSssupplyMaxMillivolts, uint8_t referenceByte)
 {
-	if (warpSensorDevice != kWarpSensorADXL362)
+if (warpSensorDevice != kWarpSensorADXL362)
 	{
 		enableI2Cpins(pullupValue);
 	}

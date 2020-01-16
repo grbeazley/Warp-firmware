@@ -37,7 +37,7 @@ writeCommand(uint8_t commandByte)
 	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
 	 */
 	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
-	OSA_TimeDelay(0.1);
+	OSA_TimeDelay(0.1);//reduce to 0.1ms from 10ms for speed
 	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
 
 	/*
@@ -77,7 +77,7 @@ writeColor(uint8_t commandByte[3], int transfer_size)
 	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
 	 */
 	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
-	OSA_TimeDelay(0.1);
+	OSA_TimeDelay(0.1);//reduce to 0.1ms from 10ms for speed
 	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
 
 	/*
@@ -122,7 +122,7 @@ writeLine(uint8_t commandByte[8])
 	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
 	 */
 	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
-	OSA_TimeDelay(0.1);
+	OSA_TimeDelay(0.1);//reduce to 0.1ms from 10ms for speed
 	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
 
 	/*
@@ -151,12 +151,15 @@ writeLine(uint8_t commandByte[8])
 	return status;
 }
 
+
+// Set initial number colour to be cyan
 uint8_t numberColorR = 0x00;
 uint8_t numberColorG = 0x35;
 uint8_t numberColorB = 0x36;
 
 //uint8_t numberColor[3] = {0x00, 0x00, 0x00};
 
+// Set background colour as black
 uint8_t backgrColorR = 0x00;
 uint8_t backgrColorG = 0x00;
 uint8_t backgrColorB = 0x00;
@@ -167,7 +170,7 @@ uint8_t backgrColor[3] = {0x00, 0x00, 0x00};
 static int
 writeWatts()
 {
-	// Write the W for the measurement of Watts
+	// Write the W denoting the measurement of Watts
 	spi_status_t status;
 
 	int 				transfer_size = 32;
@@ -181,7 +184,7 @@ writeWatts()
 	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
 	 */
 	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
-	OSA_TimeDelay(0.1);
+	OSA_TimeDelay(0.1); //reduce to 0.1ms from 10ms for speed
 	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
 
 	/*
@@ -190,9 +193,9 @@ writeWatts()
 	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
 
 	volatile uint8_t payloadBytes[32] = {0x21, 0x51, 0x07, 0x51, 0x38, numberColorR, numberColorG, numberColorB,  /* Draw left hand line */
-										 0x21, 0x51, 0x38, 0x56, 0x2E, numberColorR, numberColorG, numberColorB,  /* Draw left upward diagonal */
-										 0x21, 0x5C, 0x38, 0x57, 0x2E, numberColorR, numberColorG, numberColorB,  /* Draw right downward diagonal */
-										 0x21, 0x5C, 0x07, 0x5C, 0x38, numberColorR, numberColorG, numberColorB}; /* Draw right hand line */
+					     0x21, 0x51, 0x38, 0x56, 0x2E, numberColorR, numberColorG, numberColorB,  /* Draw left upward diagonal */
+					     0x21, 0x5C, 0x38, 0x57, 0x2E, numberColorR, numberColorG, numberColorB,  /* Draw right downward diagonal */
+					     0x21, 0x5C, 0x07, 0x5C, 0x38, numberColorR, numberColorG, numberColorB}; /* Draw right hand line */
 
 
 	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
@@ -225,7 +228,7 @@ writeKilo()
 	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
 	 */
 	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
-	OSA_TimeDelay(0.1);
+	OSA_TimeDelay(0.1);//reduce to 0.1ms from 10ms for speed
 	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
 
 	/*
@@ -234,8 +237,8 @@ writeKilo()
 	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
 
 	volatile uint8_t payloadBytes[24] = {0x21, 0x54, 0x12, 0x54, 0x29, numberColorR, numberColorG, numberColorB,   /* Draw left hand line    */
-										 0x21, 0x55, 0x1C, 0x59, 0x12, numberColorR, numberColorG, numberColorB,   /* Draw upward diagonal   */
-										 0x21, 0x55, 0x1D, 0x59, 0x29, numberColorR, numberColorG, numberColorB};  /* Draw downward diagonal */
+					     0x21, 0x55, 0x1C, 0x59, 0x12, numberColorR, numberColorG, numberColorB,   /* Draw upward diagonal   */
+					     0x21, 0x55, 0x1D, 0x59, 0x29, numberColorR, numberColorG, numberColorB};  /* Draw downward diagonal */
 
 
 	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
@@ -341,52 +344,7 @@ devSSD1331init(void)
 	writeCommand(0x00);
 	writeCommand(0x00);
 	writeCommand(0x5F);
-	writeCommand(0x3F);
-
-
-
-	/*
-	 *	Any post-initialization drawing commands go here.
-	 */
-	//...
-
-	//writeCommand(kSSD1331CommandDISPLAYALLON);
-	//writeCommand(kSSD1331CommandDISPLAYON);
-
-	// Draw Rectangle
-
-	/*
-	writeCommand(0x22); // Enters draw rectangle mode
-	writeCommand(0x03); // Sets starting column as column 1
-	writeCommand(0x02); // Sets starting row as rows 1
-	writeCommand(0x5F); // Sets the end Column
-	writeCommand(0x3F); // Sets the end row
-
-	writeCommand(0x00); // sets outline colours
-	writeCommand(0x3F); 
-	writeCommand(0x00);
-
-	writeCommand(0x00); // sets fill colours
-	writeCommand(0x3F);
-	writeCommand(0x00);
-	*/
-
-
-	writeCommand(0x22); // Enters draw rectangle mode
-	writeCommand(0x00); // Sets starting column as column 1
-	writeCommand(0x00); // Sets starting row as rows 1
-	writeCommand(0x5F); // Sets the end Column
-	writeCommand(0x3F); // Sets the end row
-
-	writeCommand(0x00); // sets outline colours
-	writeCommand(0x3F); 
-	writeCommand(0x00);
-
-	writeCommand(0x00); // sets fill colours
-	writeCommand(0x3F);
-	writeCommand(0x00);
-
-	
+	writeCommand(0x3F);	
 
 	return 0;
 }
@@ -401,10 +359,7 @@ void drawRect(uint8_t positionOffset)
 		
 	writeLine(line_buffer);
 	
-	writeColor(backgrColor, 3); // set fill of number same as background
-	
-	
-	
+	writeColor(backgrColor, 3); // set fill of number same as background	
 }
 	
 void 
@@ -456,7 +411,7 @@ drawTop(uint8_t positionOffset)
 }
 
 
-// Function draws each number in turn
+// Function draws each number at the required position offset (in the x direction)
 void
 drawNumber(int number, uint8_t positionOffset)
 {
@@ -588,8 +543,8 @@ drawNumbersPower(int power)
 	if (isKiloWatts && isValid)
 	{
 		power_val1 = power / 1000;
-	    power_val2 = (power % 1000) / 100;
-	    power_val3 = (power % 100) / 10;
+	    	power_val2 = (power % 1000) / 100;
+		    power_val3 = (power % 100) / 10;
 		
 		numberColorR = 0x39;
 		numberColorG = 0x00;
@@ -608,14 +563,14 @@ drawNumbersPower(int power)
 	else{return;}
 
 	
-	// Clear Screen and draw Watts, W letter
+	// Clear Screen 
 	writeCommand(kSSD1331CommandCLEAR);
 	writeCommand(0x00);
 	writeCommand(0x00);
 	writeCommand(0x5F);
 	writeCommand(0x3F);
 
-	// Set Background color (commented since background assumed black)
+	// Set Background color (commented to save time since background assumed black)
 	//uint8_t line_buffer[8] = {0x22, 0x00, 0x00, 0x5F, 0x3F, backgrColorR, backgrColorG, backgrColorB};
 		
 	//writeLine(line_buffer);
@@ -623,6 +578,7 @@ drawNumbersPower(int power)
 	//writeColor(backgrColor, 3); // set background fill
 
 
+	// Draw Watts, W letter
 	writeWatts();
 	
 	if (isKiloWatts)
